@@ -1,0 +1,10 @@
+idf_component_register(SRCS 
+                    "main.c"
+                    "xbox_handler.c"
+                    "kinematic/kinematic.c"
+                    "motor/motor_driver.c"
+                    INCLUDE_DIRS 
+                    "."
+                    "Include"
+                    "kinematic"
+                    "motor")
