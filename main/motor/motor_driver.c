@@ -68,22 +68,30 @@ void init_motors(){
     gpio_set_direction(PIN_DIRECCION_B_MOTOR_B, GPIO_MODE_OUTPUT);
 }
 
-void set_motor_speed(int speed){
+void set_motor_speed_right(int speed){
     if (speed > 0) {
         gpio_set_level(PIN_DIRECCION_A_MOTOR_A, 1);
-        gpio_set_level(PIN_DIRECCION_B_MOTOR_A, 0);
-        gpio_set_level(PIN_DIRECCION_A_MOTOR_B, 1);
-        gpio_set_level(PIN_DIRECCION_B_MOTOR_B, 0);
+        gpio_set_level(PIN_DIRECCION_B_MOTOR_A,0);
+
     }else{
         gpio_set_level(PIN_DIRECCION_A_MOTOR_A, 0);
         gpio_set_level(PIN_DIRECCION_B_MOTOR_A, 1);
+    }
+    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_DER, abs(speed));
+    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_DER);
+}
+
+void set_motor_speed_left(int speed){
+    if (speed > 0) {
+        gpio_set_level(PIN_DIRECCION_A_MOTOR_B, 1);
+        gpio_set_level(PIN_DIRECCION_B_MOTOR_B, 0);
+    }else{
+
         gpio_set_level(PIN_DIRECCION_A_MOTOR_B, 0);
         gpio_set_level(PIN_DIRECCION_B_MOTOR_B, 1);
     }
     ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_IZQ, abs(speed));
     ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_IZQ);
-    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_DER, abs(speed));
-    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_DER);
 }
 
 void set_servo_angle(int angle){

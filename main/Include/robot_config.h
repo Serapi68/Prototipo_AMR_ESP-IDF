@@ -22,8 +22,9 @@
 /*=========CONSTANTES FISICAS===========*/
 //Constantes fisicas del prototipo
 
-#define DISTANCIA_EJE_MOTORES_CM  0.15f    //Distancia entre los ejes de los motores en cm
+#define DISTANCIA_EJE_MOTORES_CM  0.20f    //Distancia entre los ejes de los motores en cm
 #define RADIO_GIRO_CM  0.30f               //Radio de giro del robot en cm
+#define ANCHO_VIA_CM 0.15f                 //Ancho de la via del robot en cm
 
 //limites de velocidad
 #define VELOCIDAD_MAX  100.0f           //Velocidad maxima en
