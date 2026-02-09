@@ -6,6 +6,7 @@
 #define ROBOT_CONFIG_H
 
 /*=========CONFIGURACION DE PINES===========*/
+#define PIN_LED 2
 #define PIN_PWM_MOTOR_A  12               //Salida PWM
 #define PIN_DIRECCION_A_MOTOR_A  27       //Salida digital
 #define PIN_DIRECCION_B_MOTOR_A  26      //Salida digital
@@ -22,15 +23,17 @@
 /*=========CONSTANTES FISICAS===========*/
 //Constantes fisicas del prototipo
 
-#define DISTANCIA_EJE_MOTORES_CM  0.20f    //Distancia entre los ejes de los motores en cm
-#define RADIO_GIRO_CM  0.30f               //Radio de giro del robot en cm
-#define ANCHO_VIA_CM 0.15f                 //Ancho de la via del robot en cm
+#define DISTANCIA_EJE_MOTORES_CM  20.0f    //Distancia entre los ejes de los motores en cm
+#define RADIO_GIRO_CM  30.0f               //Radio de giro del robot en cm
+#define ANCHO_VIA_CM 15.0f                 //Ancho de la via del robot en cm
 
 //limites de velocidad
 #define VELOCIDAD_MAX  100.0f           //Velocidad maxima en
 #define VELOCIDAD_MIN  20.0f            //Velocidad minima en cm/s
 #define VELOCIDAD_GIRO 60.0f            //Velocidad de giro en cm/s
-
+#define SERVO_ANGULO_MAX_GIRO 30        // Ángulo máximo de giro (grados).
+#define SERVO_OFFSET_CENTRADO 0         // Ajuste fino (+/- grados) si el robot no va recto con el stick en 0.
+#define EFECTO_GIRO 3.5f          // Ganancia para el efecto diferencial (ajustable según pruebas)
 /*====================Configuracion PWM=================*/
 
 #define LEDC_TIMER              LEDC_TIMER_0
