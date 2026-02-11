@@ -13,12 +13,12 @@
 #define PIN_PWM_MOTOR_B  13             //Salida PWM
 #define PIN_DIRECCION_A_MOTOR_B  25     //Salida digital
 #define PIN_DIRECCION_B_MOTOR_B  33     //Salida digital
-#define PIN_SERVO_DIRECCION 14         //Salida PWM
+#define PIN_SERVO_DIRECCION 14          //Salida PWM
+#define PIN_SERVO_MOV_SENSOR 18         //Salida PWM
 #define PIN_HCSR04_TRIG 32          //Salida digital
 #define PIN_HCSR04_ECHO 35         //Entrada analogica
 
-//Puede tener cambios
-#define LES_STATUS 2
+
 
 /*=========CONSTANTES FISICAS===========*/
 //Constantes fisicas del prototipo
@@ -34,6 +34,11 @@
 #define SERVO_ANGULO_MAX_GIRO 30        // Ángulo máximo de giro (grados).
 #define SERVO_OFFSET_CENTRADO 0         // Ajuste fino (+/- grados) si el robot no va recto con el stick en 0.
 #define EFECTO_GIRO 3.5f          // Ganancia para el efecto diferencial (ajustable según pruebas)
+
+//Angulos para el servo del sensor ultrasónico
+#define ANGULO_SENSOR_CENTRO 90       // Ángulo para mirar al frente
+#define ANGULO_SENSOR_IZQUIERDA 150   // Ángulo para mirar a la izquierda
+#define ANGULO_SENSOR_DERECHA 30      // Ángulo para mirar a la derecha
 /*====================Configuracion PWM=================*/
 
 #define LEDC_TIMER              LEDC_TIMER_0
@@ -48,8 +53,14 @@
 // Parámetros del PWM para servomotor
 #define SERVO_TIMER             LEDC_TIMER_1
 #define SERVO_CHANNEL           LEDC_CHANNEL_2
-#define SERVO_FRECUENCIA        50        // 50 Hz (estándar para servos)
-#define SERVO_RESOLUCION        LEDC_TIMER_14_BIT  // 14 bits para precisión
+#define SERVO_FRECUENCIA        50        
+#define SERVO_RESOLUCION        LEDC_TIMER_14_BIT  
+
+//Parametros del Servo PWM para el sensor ultrasónico
+#define SERVO_SENSOR_TIMER       LEDC_TIMER_2
+#define SERVO_SENSOR_CHANNEL     LEDC_CHANNEL_3
+#define SERVO_SENSOR_FRECUENCIA  50
+#define SERVO_SENSOR_RESOLUCION  LEDC_TIMER_14_BIT
 
 // Límites del servo 
 #define SERVO_PULSO_MIN         500      // ~1ms (ángulo mínimo)
@@ -69,8 +80,17 @@
 
 /* ========== CONFIGURACIÓN DEL SENSOR ULTRASÓNICO ========== */
 
-#define DISTANCIA_MINIMA_CM     5         // Distancia de detección (5cm)
+#define DISTANCIA_MINIMA_CM     5       // Distancia de detección para frenar (cm)
 #define TIMEOUT_ULTRASONICO_US  30000     // Timeout de 30ms
+
+/* ========== PARÁMETROS DEL MODO AUTÓNOMO ========== */
+
+#define VELOCIDAD_AUTONOMO      0.5      // Velocidad para el modo autónomo (0.0 a 1.0)
+#define VELOCIDAD_RETROCESO     -0.4      // Velocidad para retroceder al esquivar (0.0 a 1.0)
+#define TIEMPO_PAUSA_DETENIDO_MS 200      // Pequeña pausa al detenerse antes de escanear
+#define TIEMPO_ESPERA_SERVO_MS  400       // Tiempo para que el servo llegue a su posición
+#define TIEMPO_RETROCESO_MS     500       // Tiempo que el robot retrocede
+#define TIEMPO_GIRO_MS          800       // Tiempo que el robot gira para esquivar
 
 
 /* ========== ESTADOS DEL ROBOT ========== */
@@ -90,6 +110,8 @@ typedef struct {
     float stick_izq_y;         // Stick izquierdo eje Y (reservado)
     uint8_t boton_a;           // Botón A - Cambio de modo
     uint8_t boton_b;           // Botón B - Emergencia
+    uint8_t boton_lb;          // Botón LB - Modo Anterior
+    uint8_t boton_rb;          // Botón RB - Modo Siguiente
 } xbox_data_t;
 
 /* ========== ESTRUCTURA DE VELOCIDADES CALCULADAS ========== */

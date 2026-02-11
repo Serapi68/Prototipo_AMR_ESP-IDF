@@ -4,6 +4,9 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "esp_system.h"
+#include "esp_event.h"
 
 #include "esp_log.h"
 #include "esp_bt.h"
@@ -12,15 +15,12 @@
 #include "esp_hid_gap.h"
 #include "xbox_config.h"
 #include "robot_config.h"
-#include "kinematic.h"
-#include "motor_driver.h"
+#include "maquina_estado.h"
 
 static xbox_data_t g_mando_conectado = {0}; // Estructura global para almacenar el estado del mando
 
 static const char *TAG = "XBOX_HANDLER";
 
-// Variable estática para guardar el último reporte y comparar cambios (temporal)
-static uint8_t last_report[64] = {0};
 
 /* ================= HID CALLBACK ================= */
 // Esta función maneja los eventos del stack HID (conexión, entrada de datos, desconexión)
@@ -48,34 +48,30 @@ static void hidh_callback(void *arg,
         uint16_t raw_lt = (d[XBOX_BYTE_LT + 1] << 8) | d[XBOX_BYTE_LT]; // Trigger izquierdo
         uint16_t raw_rt = (d[XBOX_BYTE_RT + 1] << 8) | d[XBOX_BYTE_RT]; // Trigger derecho
 
-        // DEBUG: Descomenta esto si el stick hace cosas raras para ver el valor crudo
-        // static int log_raw = 0;
-        // if (log_raw++ > 20) {
-        //    ESP_LOGI(TAG, "Raw Stick X: %u (Centro ideal: 32768)", left_stick_x);
-        //    log_raw = 0;
-        // }
-
         //Normalizar los rangos de los sticks y gatillos a -1.0 a 1.0 o 0.0 a 1.0
         // Restamos 32768 para centrar en 0, dividimos por 32768 para rango -1.0 a 1.0
         g_mando_conectado.stick_izq_x = ((float)left_stick_x - 32768.0f) / 32768.0f;
         g_mando_conectado.trigger_lt = (float)(raw_lt - XBOX_TRIGGER_MIN) / (XBOX_TRIGGER_MAX - XBOX_TRIGGER_MIN); // Normalizado a 0.0 a 1.0
         g_mando_conectado.trigger_rt = (float)(raw_rt - XBOX_TRIGGER_MIN) / (XBOX_TRIGGER_MAX - XBOX_TRIGGER_MIN); // Normalizado a 0.0 a 1.0
         
-        //Botonos A y B (bit 0 y bit 1 del byte de botones)
+        //Botones 
         g_mando_conectado.boton_a = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_A) ? 1 : 0; // Botón A
         g_mando_conectado.boton_b = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_B) ? 1 : 0; // Botón B
+        g_mando_conectado.boton_lb = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_LB) ? 1 : 0; // Botón LB
+        g_mando_conectado.boton_rb = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_RB) ? 1 : 0; // Botón RB
 
-        //Calcular potencia neta para el robot (gatillo derecho - gatillo izquierdo)
-        float potencia = (g_mando_conectado.trigger_rt - g_mando_conectado.trigger_lt);
-
-        //Actualizar movimiento del robot con la función de cinemática
-        actualizar_movimiento(potencia, g_mando_conectado.stick_izq_x);
-        set_led(g_mando_conectado.boton_b);
+        // Enviar los datos del mando a la tarea de control a través de la cola.
+        // Usamos xQueueOverwrite para reemplazar siempre el valor anterior, ya que solo nos interesa el último estado.
+        if (g_xbox_queue != NULL) {
+            xQueueOverwrite(g_xbox_queue, &g_mando_conectado);
+        }
         break;
 
     case ESP_HIDH_CLOSE_EVENT:
         ESP_LOGW(TAG, "MANDO DESCONECTADO");
-        // Aquí se podría implementar lógica de reconexión o parada de emergencia
+        // Cuando el mando se desconecta, enviamos un estado "cero" para que la tarea de control detenga el robot.
+        memset(&g_mando_conectado, 0, sizeof(xbox_data_t));
+        xQueueOverwrite(g_xbox_queue, &g_mando_conectado);
         break;
 
     default:
@@ -113,8 +109,13 @@ void init_xbox(void)
     esp_hid_scan_result_t *r = results;
     esp_hidh_dev_t *dev = NULL;
     while (r) {
-        if (r->transport == ESP_HID_TRANSPORT_BLE && strcmp(r->name, "Xbox Wireless Controller") == 0) {
-            ESP_LOGI(TAG, "Encontrado: %s", r->name);
+        // Log para depuración: Ver qué dispositivos se han encontrado
+        ESP_LOGI(TAG, "Evaluando dispositivo: %s (RSSI: %d)", (r->name ? r->name : "SIN NOMBRE"), r->rssi);
+
+        // Usamos strstr para buscar "Xbox" en el nombre, es más flexible que strcmp exacto.
+        // También verificamos que r->name no sea NULL.
+        if (r->transport == ESP_HID_TRANSPORT_BLE && r->name != NULL && strstr(r->name, "Xbox") != NULL) {
+            ESP_LOGI(TAG, "¡Mando Xbox Encontrado!: %s", r->name);
             // Abrir conexión con el dispositivo encontrado
             dev = esp_hidh_dev_open(r->bda, r->transport, r->ble.addr_type);
             break;

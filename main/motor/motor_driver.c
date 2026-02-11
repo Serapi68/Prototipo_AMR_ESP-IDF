@@ -61,6 +61,28 @@ void init_motors(){
     }; 
     ledc_channel_config(&ledc_channel_servo);
 
+    // Configuración del timer para el servo del sensor 
+    ledc_timer_config_t ledc_timer_servo_sensor = {
+        .speed_mode       = LEDC_MODE,
+        .timer_num        = SERVO_SENSOR_TIMER,
+        .duty_resolution  = SERVO_SENSOR_RESOLUCION,
+        .freq_hz          = SERVO_SENSOR_FRECUENCIA,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ledc_timer_config(&ledc_timer_servo_sensor);
+
+    ledc_channel_config_t ledc_channel_servo_sensor = {
+        .speed_mode     = LEDC_MODE,
+        .channel        = SERVO_SENSOR_CHANNEL,
+        .timer_sel      = SERVO_SENSOR_TIMER,
+        .intr_type      = LEDC_INTR_DISABLE,
+        .gpio_num       = PIN_SERVO_MOV_SENSOR,
+        .duty           = 0,
+        .hpoint         = 0
+    };
+    ledc_channel_config(&ledc_channel_servo_sensor);
+
+
     // Configuracion de los pines de direccion como salidas
     gpio_set_direction(PIN_DIRECCION_A_MOTOR_A, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_DIRECCION_B_MOTOR_A, GPIO_MODE_OUTPUT);
@@ -116,4 +138,15 @@ void set_servo_angle(int angle){
 
 void set_led(bool on){
     gpio_set_level(PIN_LED, on ? 1 : 0);
+}
+
+void set_servo_sensor_angle(int angle){
+    if (angle < 0) angle = 0;
+    if (angle > 180) angle = 180;
+
+    int pulse_width_us = SERVO_PULSO_MIN + (angle * (SERVO_PULSO_MAX - SERVO_PULSO_MIN) / 180);
+    int duty = (pulse_width_us * SERVO_SENSOR_FRECUENCIA * (1 << SERVO_SENSOR_RESOLUCION)) / 1000000;
+    
+    ledc_set_duty(LEDC_MODE, SERVO_SENSOR_CHANNEL, duty);
+    ledc_update_duty(LEDC_MODE, SERVO_SENSOR_CHANNEL);
 }

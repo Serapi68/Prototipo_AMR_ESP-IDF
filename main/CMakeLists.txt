@@ -4,6 +4,9 @@ idf_component_register(SRCS
                     "kinematic/kinematic.c"
                     "motor/motor_driver.c"
                     "esp_hid/esp_hid_gap.c"
+                    "maquina_estado/maquina_estado.c"
+                    "modo_autonomo/auto_sensores.c"
+                    "modo_autonomo/hc_sr04.c"
                     INCLUDE_DIRS 
                     "."
                     "Include"
@@ -11,5 +14,7 @@ idf_component_register(SRCS
                     "motor"
                     "xbox_hid"
                     "esp_hid"
+                    "maquina_estado"
+                    "modo_autonomo"
                     REQUIRES 
                     nvs_flash bt esp_hid driver )
