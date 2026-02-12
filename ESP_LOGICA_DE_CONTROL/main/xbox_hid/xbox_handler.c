@@ -16,6 +16,7 @@
 #include "xbox_config.h"
 #include "robot_config.h"
 #include "maquina_estado.h"
+#include "motor_driver.h"
 
 static xbox_data_t g_mando_conectado = {0}; // Estructura global para almacenar el estado del mando
 
@@ -72,6 +73,7 @@ static void hidh_callback(void *arg,
         // Cuando el mando se desconecta, enviamos un estado "cero" para que la tarea de control detenga el robot.
         memset(&g_mando_conectado, 0, sizeof(xbox_data_t));
         xQueueOverwrite(g_xbox_queue, &g_mando_conectado);
+        set_led(true); // Encender LED para indicar desconexión
         break;
 
     default:
