@@ -7,6 +7,7 @@ idf_component_register(SRCS
                     "maquina_estado/maquina_estado.c"
                     "modo_autonomo/auto_sensores.c"
                     "modo_autonomo/hc_sr04.c"
+                    "comunicacion_vision/uart_vision.c"
                     INCLUDE_DIRS 
                     "."
                     "Include"
@@ -16,5 +17,6 @@ idf_component_register(SRCS
                     "esp_hid"
                     "maquina_estado"
                     "modo_autonomo"
+                    "comunicacion_vision"
                     REQUIRES 
                     nvs_flash bt esp_hid driver )

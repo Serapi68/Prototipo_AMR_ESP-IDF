@@ -12,5 +12,7 @@
     "--background-index",
     "--query-driver=**",
     "--compile-commands-dir=c:\\Users\\Sergio\\OneDrive\\Desktop\\Proyecto Final\\Proyecto_Final_Software\\ESPCAM_VISION_ARTIFICIAL\\build"
-  ]
+  ],
+  "idf.portWin": "COM4",
+  "idf.flashType": "UART"
 }

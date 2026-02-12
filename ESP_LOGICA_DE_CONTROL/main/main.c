@@ -10,6 +10,7 @@
 #include "kinematic.h"
 #include "maquina_estado.h"
 #include "modo_autonomo/hc_sr04.h"
+#include "comunicacion_vision/uart_vision.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -31,6 +32,11 @@ void app_main(void)
 
     //Inicializar Mando Xbox 
     init_xbox();
+
+    // Inicializar UART Vision y comenzar prueba
+    ESP_LOGI(TAG, "Inicializando UART Vision...");
+    init_uart_vision();
+    start_vision_test(); // <--- Tarea de prueba temporal
 
     // Inicializar la Máquina de Estados (Crea cola y tarea de control)
     init_maquina_estado();

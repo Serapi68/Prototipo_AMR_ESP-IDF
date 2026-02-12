@@ -18,7 +18,9 @@
 #define PIN_HCSR04_TRIG 32          //Salida digital
 #define PIN_HCSR04_ECHO 35         //Entrada analogica
 
-
+/*===============CONFIGURACION UART VISION===========*/
+#define UART_TX_PIN 17
+#define UART_RX_PIN 16
 
 /*=========CONSTANTES FISICAS===========*/
 //Constantes fisicas del prototipo
@@ -136,7 +138,7 @@ typedef struct {
 #define STACK_SIZE_XBOX         4096
 #define STACK_SIZE_MOTORES      2048
 #define STACK_SIZE_SENSORES     2048
-#define STACK_SIZE_VISION       8192
+    
 
 
 #endif // ROBOT_CONFIG_H
