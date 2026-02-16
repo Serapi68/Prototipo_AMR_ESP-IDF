@@ -1,2 +1,15 @@
-idf_component_register(SRCS "main.c"
-                    INCLUDE_DIRS ".")
+idf_component_register(SRCS 
+                    "main.c"
+                    "camara_driver/camara_driver.c"
+                    "comunicacion_uart/uart_comm.c"
+                    "vision_core/vision_core.c"
+                    "wifi_stream/http_stream.c"
+                    INCLUDE_DIRS 
+                    "."
+                    "comunicacion_uart"
+                    "vision_core"
+                    "wifi_stream"
+                    "camara_driver"
+                    "include"
+                    REQUIRES
+                    esp32-camera esp_psram esp_wifi nvs_flash esp_http_server)

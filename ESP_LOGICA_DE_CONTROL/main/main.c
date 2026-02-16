@@ -34,9 +34,6 @@ void app_main(void)
     init_xbox();
 
     // Inicializar UART Vision y comenzar prueba
-    ESP_LOGI(TAG, "Inicializando UART Vision...");
-    init_uart_vision();
-    start_vision_test(); // <--- Tarea de prueba temporal
 
     // Inicializar la Máquina de Estados (Crea cola y tarea de control)
     init_maquina_estado();

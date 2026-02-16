@@ -7,16 +7,16 @@
 
 /*=========CONFIGURACION DE PINES===========*/
 #define PIN_LED 2
-#define PIN_PWM_MOTOR_A  12               //Salida PWM
-#define PIN_DIRECCION_A_MOTOR_A  27       //Salida digital
-#define PIN_DIRECCION_B_MOTOR_A  26      //Salida digital
+#define PIN_PWM_MOTOR_A  12               //Salida PWM  
+#define PIN_DIRECCION_A_MOTOR_A  27       //Salida digital --in2
+#define PIN_DIRECCION_B_MOTOR_A  26      //Salida digital -- in1
 #define PIN_PWM_MOTOR_B  13             //Salida PWM
-#define PIN_DIRECCION_A_MOTOR_B  25     //Salida digital
-#define PIN_DIRECCION_B_MOTOR_B  33     //Salida digital
+#define PIN_DIRECCION_A_MOTOR_B  25     //Salida digital -- in3
+#define PIN_DIRECCION_B_MOTOR_B  33     //Salida digital -- in4
 #define PIN_SERVO_DIRECCION 14          //Salida PWM
 #define PIN_SERVO_MOV_SENSOR 18         //Salida PWM
 #define PIN_HCSR04_TRIG 32          //Salida digital
-#define PIN_HCSR04_ECHO 35         //Entrada analogica
+#define PIN_HCSR04_ECHO 35         //Entrada analogica resistencia 
 
 /*===============CONFIGURACION UART VISION===========*/
 #define UART_TX_PIN 17
@@ -25,16 +25,16 @@
 /*=========CONSTANTES FISICAS===========*/
 //Constantes fisicas del prototipo
 
-#define DISTANCIA_EJE_MOTORES_CM  20.0f    //Distancia entre los ejes de los motores en cm
+#define DISTANCIA_EJE_MOTORES_CM  15.5f    //Distancia entre los ejes de los motores en cm eje trasero y eje delantero
 #define RADIO_GIRO_CM  30.0f               //Radio de giro del robot en cm
-#define ANCHO_VIA_CM 15.0f                 //Ancho de la via del robot en cm
+#define ANCHO_VIA_CM 20.0f                 //Ancho de la via del robot en cm izquierda a derecha
 
 //limites de velocidad
 #define VELOCIDAD_MAX  100.0f           //Velocidad maxima en
 #define VELOCIDAD_MIN  20.0f            //Velocidad minima en cm/s
 #define VELOCIDAD_GIRO 60.0f            //Velocidad de giro en cm/s
-#define SERVO_ANGULO_MAX_GIRO 30        // Ángulo máximo de giro (grados).
-#define SERVO_OFFSET_CENTRADO 0         // Ajuste fino (+/- grados) si el robot no va recto con el stick en 0.
+#define SERVO_ANGULO_MAX_GIRO 52        // Ángulo máximo de giro (grados).
+#define SERVO_OFFSET_CENTRADO 7         // Ajuste fino (+/- grados) si el robot no va recto con el stick en 0.
 #define EFECTO_GIRO 3.5f          // Ganancia para el efecto diferencial (ajustable según pruebas)
 
 //Angulos para el servo del sensor ultrasónico
@@ -45,7 +45,7 @@
 
 #define LEDC_TIMER              LEDC_TIMER_0
 #define LEDC_MODE               LEDC_LOW_SPEED_MODE
-#define LEDC_FRECUENCIA         200
+#define LEDC_FRECUENCIA         1000
 #define LEDC_RESOLUCION         LEDC_TIMER_10_BIT  // 10 bits = 0-1023
 
 // Canales PWM para los motores
