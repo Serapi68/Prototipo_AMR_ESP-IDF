@@ -11,5 +11,7 @@ idf_component_register(SRCS
                     "wifi_stream"
                     "camara_driver"
                     "include"
+                    EMBED_TXTFILES
+                    "index.html"
                     REQUIRES
                     esp32-camera esp_psram esp_wifi nvs_flash esp_http_server)

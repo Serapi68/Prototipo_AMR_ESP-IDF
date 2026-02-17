@@ -6,6 +6,7 @@
 
 #include "camara_driver/camara_driver.h"
 #include "wifi_stream/http_stream.h"
+#include "vision_core/vision_core.h"
 
 static const char *TAG = "ESP_CAM_TEST";
 
@@ -26,10 +27,13 @@ void app_main(void)
     }
 
     // 3. Iniciar Wi-Fi
-    start_wifi();
+    start_wifi(); 
 
-    // 4. Iniciar Servidor Web
-    start_webserver();
-
+    // 4. Iniciar vision_core (tarea de procesamiento)
+    vision_core_init();
     ESP_LOGI(TAG, "Sistema de Visión Iniciado. Esperando conexión...");
+    
+    // 5. Iniciar servidor web (después de iniciar visión_core para evitar bloqueos)
+    start_webserver();
 }
+

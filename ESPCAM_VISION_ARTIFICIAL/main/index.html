@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width,initial-scale=1'>
+    <title>Robot Vision</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #1a1a1a; 
+            color: #fff; 
+            text-align: center; 
+            margin: 0; 
+        }
+        h1 { margin: 10px; }
+        /* Contenedor para superponer el canvas sobre el video */
+        .video-container { 
+            position: relative; 
+            display: inline-block; 
+        }
+        img { 
+            width: 100%; 
+            max-width: 640px; 
+            height: auto; 
+            border: 2px solid #444; 
+            display: block; 
+        }
+        /* El canvas es un vidrio transparente para dibujar las cajas */
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <h1>Vista en Tiempo Real</h1>
+    <div class='video-container'>
+        <img src='/stream' id='video-stream'>
+        <canvas id='overlay'></canvas>
+    </div>
+</body>
+</html>
