@@ -1,259 +1,169 @@
 #include "vision_core.h"
-#include <string.h>
+#include "qr_processor.h"
+#include "camara_driver/camara_driver.h"
 #include "esp_log.h"
-#include "esp_camera.h"
-#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_heap_caps.h"
-#include "img_converters.h"
-#include "freertos/semphr.h"
+#include "driver/gpio.h"
+#include "espcam_config.h"
+#include "esp_camera.h"
 
-#if __has_include("quirc.h")
-#include "quirc.h"
-#define SOPORTE_QR 1
-#else
-#define SOPORTE_QR 0
-#endif
-
-SemaphoreHandle_t g_cam_mutex = NULL;
 static const char *TAG = "VISION_CORE";
-static vision_mode_t g_current_mode = VISION_MODO_IDLE;
+static vision_mode_t g_current_mode = VISION_MODO_STREAMING;
+SemaphoreHandle_t g_cam_mutex = NULL;
 
-// Variables estáticas GLOBALES para Quirc (no dentro de la función)
-#if SOPORTE_QR
-static struct quirc *q = NULL;
-static uint8_t *rgb_buf = NULL;
-static size_t rgb_buf_len = 0;
-static int quirc_w = 0, quirc_h = 0;
-#endif
+// ... (mantén tus includes)
 
 void vision_core_set_mode(vision_mode_t mode) {
+    if (g_current_mode == mode) return;
+
+    if (xSemaphoreTake(g_cam_mutex, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Timeout al tomar mutex para cambiar modo");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Cambiando modo de %d a %d. Reconfigurando cámara...", g_current_mode, mode);
+
+    // 1. Apagar la cámara y limpiar recursos
+    esp_camera_deinit();
+    gpio_uninstall_isr_service();
+    gpio_reset_pin(CAM_PIN_XCLK);
+
+    // 2. Power Cycle del sensor para un reinicio limpio
+    gpio_set_direction(CAM_PIN_PWDN, GPIO_MODE_OUTPUT);
+    gpio_set_level(CAM_PIN_PWDN, 1); // Apagar
+    vTaskDelay(pdMS_TO_TICKS(100));
+    gpio_set_level(CAM_PIN_PWDN, 0); // Encender
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // 3. Crear nueva configuración
+    camera_config_t config = {
+        .pin_pwdn = CAM_PIN_PWDN,
+        .pin_reset = CAM_PIN_RESET,
+        .pin_xclk = CAM_PIN_XCLK,
+        .pin_sccb_sda = CAM_PIN_SIOD,
+        .pin_sccb_scl = CAM_PIN_SIOC,
+        .pin_d7 = CAM_PIN_D7,
+        .pin_d6 = CAM_PIN_D6,
+        .pin_d5 = CAM_PIN_D5,
+        .pin_d4 = CAM_PIN_D4,
+        .pin_d3 = CAM_PIN_D3,
+        .pin_d2 = CAM_PIN_D2,
+        .pin_d1 = CAM_PIN_D1,
+        .pin_d0 = CAM_PIN_D0,
+        .pin_vsync = CAM_PIN_VSYNC,
+        .pin_href = CAM_PIN_HREF,
+        .pin_pclk = CAM_PIN_PCLK,
+        .xclk_freq_hz = CAM_XCLK_FREQ,
+        .ledc_timer = LEDC_TIMER_0,
+        .ledc_channel = LEDC_CHANNEL_0,
+        .fb_location = CAMERA_FB_IN_PSRAM,
+        .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
+    };
+
+    // 4. Aplicar configuración específica del modo
+    if (mode == VISION_MODO_QR) {
+        config.pixel_format = PIXFORMAT_GRAYSCALE;
+        config.frame_size = FRAMESIZE_QVGA;
+        config.fb_count = 2; // Doble buffer para evitar overflow
+    } else { // Streaming y otros modos
+        config.pixel_format = PIXFORMAT_JPEG;
+        config.frame_size = CAM_RESOLUCION;
+        config.jpeg_quality = CAM_CALIDAD;
+        config.fb_count = CAM_BUFFERS;
+    }
+
+    // 5. Reinicializar la cámara
+    if (esp_camera_init(&config) != ESP_OK) {
+        ESP_LOGE(TAG, "Fallo al reinicializar cámara para modo %d", mode);
+    }
+
+    // 6. Actualizar estado y liberar mutex
     g_current_mode = mode;
-    ESP_LOGI(TAG, "Modo de visión cambiado a: %d", mode);
+    xSemaphoreGive(g_cam_mutex);
 }
 
-#if SOPORTE_QR
-static void inicializar_quirc(int width, int height) {
-    if (q != NULL) {
-        quirc_destroy(q);
-        q = NULL;
-    }
-    if (rgb_buf != NULL) {
-        heap_caps_free(rgb_buf);
-        rgb_buf = NULL;
-        rgb_buf_len = 0;
-    }
-    
-    q = quirc_new();
-    if (!q) {
-        ESP_LOGE(TAG, "No se pudo crear objeto Quirc");
-        return;
-    }
-    
-    if (quirc_resize(q, width, height) < 0) {
-        ESP_LOGE(TAG, "Fallo al reservar memoria en Quirc");
-        quirc_destroy(q);
-        q = NULL;
-        return;
-    }
-    
-    // Obtener dimensiones reales de quirc
-    quirc_w = width;
-    quirc_h = height;
-    quirc_end(q);
-    
-    // Reservar buffer RGB
-    size_t rgb_len = width * height * 3;
-    rgb_buf = (uint8_t *)heap_caps_malloc(rgb_len, MALLOC_CAP_SPIRAM);
-    if (!rgb_buf) {
-        // Intentar en DRAM si PSRAM falla
-        rgb_buf = (uint8_t *)malloc(rgb_len);
-    }
-    rgb_buf_len = rgb_len;
-    
-    ESP_LOGI(TAG, "Quirc inicializado: %dx%d (buffer: %d bytes)", 
-             quirc_w, quirc_h, rgb_buf_len);
+// ... (resto del código SIN CAMBIOS)
+
+vision_mode_t vision_core_get_mode(void) {
+    return g_current_mode;
 }
-
-static void proceso_qr(camera_fb_t *fb) {
-    if (fb->len < 100 || fb->width == 0 || fb->height == 0) {
-        return;
-    }
-    
-    // Inicializar Quirc si es necesario
-    if (q == NULL) {
-        inicializar_quirc(fb->width, fb->height);
-        if (q == NULL) return;
-    }
-    
-    // Verificar que las dimensiones coincidan
-    if (quirc_w != fb->width || quirc_h != fb->height) {
-        ESP_LOGW(TAG, "Dimensiones cambiaron, reinicializando Quirc");
-        inicializar_quirc(fb->width, fb->height);
-        if (q == NULL) return;
-    }
-    
-    // Obtener buffer de Quirc
-    uint8_t *image = quirc_begin(q, &quirc_w, &quirc_h);
-    if (!image) {
-        ESP_LOGE(TAG, "quirc_begin falló");
-        return;
-    }
-
-    if(rgb_buf == NULL){
-        ESP_LOGE(TAG, "Buffer RGB no disponible");
-        return;
-    }
-    
-    // Convertir JPEG a RGB
-    bool conversion_ok = fmt2rgb888(fb->buf, fb->len, fb->format, rgb_buf);
-    
-    // **CORRECCIÓN**: Ceder CPU después de la pesada decodificación JPEG para evitar WDT.
-    vTaskDelay(1);
-
-    if (conversion_ok && rgb_buf != NULL) {
-        // Convertir a escala de grises con límites seguros
-        int pixels = quirc_w * quirc_h;
-        int max_pixels = rgb_buf_len / 3;
-        if (pixels > max_pixels) pixels = max_pixels;
-        
-        // Bucle de conversión a escala de grises
-        for (int i = 0; i < pixels; i++) {
-            uint32_t base = i * 3;
-            uint8_t r = rgb_buf[base];
-            uint8_t g = rgb_buf[base + 1];
-            uint8_t b = rgb_buf[base + 2];
-            image[i] = (r * 30 + g * 59 + b * 11) / 100;
-
-            // **CORRECCIÓN CRÍTICA**: Ceder CPU para evitar Watchdog Timeout
-            // Este bucle es muy intensivo. Cedemos el control cada 2048 píxeles.
-            if ((i > 0) && (i % 2048 == 0)) {
-                vTaskDelay(1); // Cede el control por 1 tick del sistema operativo
-            }
-        }
-    } else {
-        ESP_LOGW(TAG, "Conversión fallida, limpiando buffer");
-        memset(image, 0, quirc_w * quirc_h);
-    }
-    
-    // Finalizar carga de imagen
-    quirc_end(q);
-    
-    // Procesar resultados
-    int count = quirc_count(q);
-    if (count > 0) {
-        struct quirc_code code;
-        // No alojar 'data' en el stack, es demasiado grande.
-        // Usamos malloc para alojarlo en el heap y evitar el Stack Overflow.
-        struct quirc_data *data = (struct quirc_data *)malloc(sizeof(struct quirc_data));
-        if (!data) {
-            ESP_LOGE(TAG, "Fallo al alojar memoria para datos del QR");
-            return;
-        }
-        
-        for (int i = 0; i < count && i < 3; i++) {  // Máximo 3 QRs
-            quirc_extract(q, i, &code);
-            if (!quirc_decode(&code, data)) {
-                char payload[256];
-                int len = data->payload_len < 255 ? data->payload_len : 255;
-                memcpy(payload, data->payload, len);
-                payload[len] = '\0';
-                
-                ESP_LOGI(TAG, "QR [%d]: %s", i, payload);
-                
-                // Comandos
-                if (strcmp(payload, "ADELANTE") == 0) {
-                    ESP_LOGI(TAG, "COMANDO: AVANZAR");
-                    //uart_send("uint1_t0x010")
-                } else if (strcmp(payload, "ATRAS") == 0) {
-                    ESP_LOGI(TAG, "COMANDO: RETROCEDER");
-                } else if (strcmp(payload, "IZQUIERDA") == 0) {
-                    ESP_LOGI(TAG, "COMANDO: IZQUIERDA");
-                } else if (strcmp(payload, "DERECHA") == 0) {
-                    ESP_LOGI(TAG, "COMANDO: DERECHA");
-                }
-            }
-
-            // **CORRECCIÓN**: Ceder CPU en cada iteración para procesar múltiples QRs sin bloquear.
-            vTaskDelay(1);
-        }
-
-        free(data); // Liberar la memoria del heap.
-    }
-}
-#else
-static void proceso_qr(camera_fb_t *fb) {
-    static int aviso = 0;
-    if (aviso++ % 100 == 0) {
-        ESP_LOGW(TAG, "Librería quirc no disponible");
-    }
-}
-#endif
 
 static void vision_task(void *pvParameters) {
-    ESP_LOGI(TAG, "Tarea de visión iniciada (Core %d)", xPortGetCoreID());
+    ESP_LOGI(TAG, "Tarea iniciada en Core %d", xPortGetCoreID());
     
-    // Pequeño delay para dejar que WiFi inicie completamente
+    // Esperar a que WiFi y otros sistemas inicien
     vTaskDelay(pdMS_TO_TICKS(1000));
-    
+
     while (1) {
-        if (g_current_mode == VISION_MODO_IDLE) {
-            vTaskDelay(pdMS_TO_TICKS(500));
-            continue;
-        }
-        
-        // Obtener frame CON mutex mantenido durante todo el procesamiento
-        if (xSemaphoreTake(g_cam_mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+        // Si estamos en modo STREAMING, esta tarea duerme
+        if (g_current_mode == VISION_MODO_STREAMING) {
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
+
+        // Tomar mutex con timeout
+        if (xSemaphoreTake(g_cam_mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+            ESP_LOGW(TAG, "Timeout esperando mutex");
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
+        // Capturar frame
+        camera_fb_t *fb = camara_capture();
         
-        camera_fb_t *fb = esp_camera_fb_get();
-        
-        if (fb != NULL) {
-            // Procesar MIENTRAS tenemos el mutex
+        if (fb) {
+            // Procesar según el modo
             switch (g_current_mode) {
                 case VISION_MODO_QR:
-                    proceso_qr(fb);
+                    qr_process_frame(fb);
                     break;
+                    
                 case VISION_MODO_TRACKING:
+                    // TODO: Implementar seguimiento de objetos
+                    ESP_LOGD(TAG, "Modo tracking aún no implementado");
                     break;
+                    
                 case VISION_MODO_SENALES:
+                    // TODO: Implementar detección de señales
+                    ESP_LOGD(TAG, "Modo señales aún no implementado");
                     break;
+                    
                 default:
                     break;
             }
             
-            // Liberar frame ANTES de liberar mutex
-            esp_camera_fb_return(fb);
+            // Devolver frame
+            camara_return_fb(fb);
+        } else {
+            ESP_LOGW(TAG, "No se pudo capturar frame");
         }
-        
-        // Ahora liberar mutex
+
+        // Liberar mutex
         xSemaphoreGive(g_cam_mutex);
         
         // Delay para no saturar CPU (ajustable según FPS deseado)
-        vTaskDelay(pdMS_TO_TICKS(100));  // Procesar a ~5-10 FPS, más responsivo
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
 void vision_core_init(void) {
+    // Crear mutex para sincronización
     g_cam_mutex = xSemaphoreCreateMutex();
     if (g_cam_mutex == NULL) {
         ESP_LOGE(TAG, "Fallo al crear mutex");
         return;
     }
     
-    // Crear tarea en Core 0 (APP_CPU) con stack generoso
+    // Crear tarea de procesamiento en Core 1
     xTaskCreatePinnedToCore(
         vision_task,
         "VisionTask",
-        16384,  // ← Aumentado de 12288 a 16384
+        20480,  // Stack size aumentado a 20KB para seguridad
         NULL,
-        3,      // Prioridad media 
+        5,      // Prioridad
         NULL,
-        1      // Core 1
+        1       // Core 1 (APP_CPU)
     );
     
-    vision_core_set_mode(VISION_MODO_QR);  // ← Iniciar en modo QR
-    ESP_LOGI(TAG, "Sistema de visión inicializado");
+    ESP_LOGI(TAG, "Sistema inicializado");
 }

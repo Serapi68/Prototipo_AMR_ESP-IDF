@@ -4,6 +4,7 @@ idf_component_register(SRCS
                     "comunicacion_uart/uart_comm.c"
                     "vision_core/vision_core.c"
                     "wifi_stream/http_stream.c"
+                    "proceso_qr/qr_processor.c"
                     INCLUDE_DIRS 
                     "."
                     "comunicacion_uart"
@@ -11,6 +12,7 @@ idf_component_register(SRCS
                     "wifi_stream"
                     "camara_driver"
                     "include"
+                    "proceso_qr"
                     EMBED_TXTFILES
                     "index.html"
                     REQUIRES

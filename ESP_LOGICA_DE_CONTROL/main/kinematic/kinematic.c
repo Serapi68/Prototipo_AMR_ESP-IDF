@@ -77,9 +77,9 @@ void actualizar_movimiento(float potencia, float direccion_stick) {
     // 4. Monitor Serial 
     // Usamos un contador estático para no saturar el log 
     static int log_counter = 0;
-    if (log_counter++ > 20) {
+    /*if (log_counter++ > 20) {
         ESP_LOGI(TAG, "Stick: %.2f | Servo: %d | Pot: %.2f | PWM L: %d | PWM R: %d", 
                  direccion_stick, angulo_servo, potencia, pwm_izq, pwm_der);
         log_counter = 0;
-    }
+    }*/
 }

@@ -58,6 +58,8 @@ static void hidh_callback(void *arg,
         //Botones 
         g_mando_conectado.boton_a = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_A) ? 1 : 0; // Botón A
         g_mando_conectado.boton_b = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_B) ? 1 : 0; // Botón B
+        g_mando_conectado.boton_x = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_X) ? 1 : 0; // Botón X
+        g_mando_conectado.boton_y = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_Y) ? 1 : 0; // Botón Y
         g_mando_conectado.boton_lb = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_LB) ? 1 : 0; // Botón LB
         g_mando_conectado.boton_rb = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_RB) ? 1 : 0; // Botón RB
 

@@ -5,6 +5,7 @@
 #include "modo_autonomo/auto_sensores.h"
 #include "esp_log.h"
 #include "freertos/task.h"
+#include "comunicacion_vision/uart_vision.h"
 
 static const char *TAG = "MAQUINA_ESTADO";
 
@@ -13,6 +14,7 @@ QueueHandle_t g_xbox_queue;
 
 // Variable local para mantener el modo de operación actual
 static modo_operacion_t g_current_mode = MODO_MANUAL;
+static uint8_t g_last_vision_cmd = 0; // Para evitar envíos repetitivos por UART
 
 /**
  * @brief Tarea principal de control del robot.
@@ -42,6 +44,12 @@ void control_task(void *pvParameters)
                 g_current_mode = (g_current_mode + 1) % 3; 
                 ESP_LOGI(TAG, "Modo Siguiente -> %s", mode_names[g_current_mode]);
                 actualizar_movimiento(0, 0); // Detener robot al cambiar de modo
+                
+                // Si NO estamos en modo visión, asegurar que la cámara esté en Streaming
+                if (g_current_mode != MODO_AUTONOMO_VISION) {
+                    uart_vision_send_cmd(CMD_STREAM_ONLY);
+                    g_last_vision_cmd = CMD_STREAM_ONLY; // Actualizar estado para evitar desincronización
+                }
             }
             last_button_rb_state = controller_data.boton_rb;
 
@@ -50,6 +58,12 @@ void control_task(void *pvParameters)
                 else g_current_mode--;
                 ESP_LOGI(TAG, "Modo Anterior -> %s", mode_names[g_current_mode]);
                 actualizar_movimiento(0, 0); // Detener robot al cambiar de modo
+
+                // Si NO estamos en modo visión, asegurar que la cámara esté en Streaming
+                if (g_current_mode != MODO_AUTONOMO_VISION) {
+                    uart_vision_send_cmd(CMD_STREAM_ONLY);
+                    g_last_vision_cmd = CMD_STREAM_ONLY; // Actualizar estado
+                }
             }
             last_button_lb_state = controller_data.boton_lb;
         }
@@ -71,6 +85,44 @@ void control_task(void *pvParameters)
                 
             case MODO_AUTONOMO_VISION:
                 actualizar_movimiento(0, 0); // Placeholder: Detener el robot (a implementar)
+                
+                // --- LÓGICA DE RECEPCIÓN DE COMANDOS DE VISIÓN ---
+                uint8_t cmd_recibido;
+                // Revisamos si hay algo en la cola (sin bloquear, wait=0)
+                if (g_vision_queue != NULL && xQueueReceive(g_vision_queue, &cmd_recibido, 0) == pdTRUE) {
+                    ESP_LOGI(TAG, "Procesando comando de visión: 0x%02X", cmd_recibido);
+                    
+                    // Aquí implementaremos la lógica de movimiento más adelante
+                    switch(cmd_recibido) {
+                        case VISION_CMD_ADELANTE:
+                            ESP_LOGI(TAG, "ACCION: Mover ADELANTE");
+                            break;
+                        case VISION_CMD_ATRAS:
+                            ESP_LOGI(TAG, "ACCION: Mover ATRAS");
+                            break;
+                        case VISION_CMD_IZQUIERDA:
+                            ESP_LOGI(TAG, "ACCION: Mover IZQUIERDA");
+                            break;
+                        case VISION_CMD_DERECHA:
+                            ESP_LOGI(TAG, "ACCION: Mover DERECHA");
+                            break;
+                    }
+                }
+
+                if (datos_nuevos_mando) {
+                    uint8_t cmd = 0;
+                    if (controller_data.boton_a) cmd = CMD_STREAM_ONLY;
+                    else if (controller_data.boton_b) cmd = CMD_QR_READER;
+                    else if (controller_data.boton_x) cmd = CMD_OBJECT_TRACKER;
+                    else if (controller_data.boton_y) cmd = CMD_SIGN_READER;
+
+                    // Enviar solo si se presionó un botón y es diferente al último enviado
+                    // para no saturar el puerto UART
+                    if (cmd != 0 && cmd != g_last_vision_cmd) {
+                        uart_vision_send_cmd(cmd);
+                        g_last_vision_cmd = cmd;
+                    }
+                }
                 break;
         }
     }
@@ -82,6 +134,9 @@ void init_maquina_estado(void)
 
     // Inicializar los módulos de los modos de operación
     auto_sensores_init();
+
+    // Inicializar UART para visión
+    uart_vision_init();
 
     // 1. Crear la cola para los datos del mando
     g_xbox_queue = xQueueCreate(1, sizeof(xbox_data_t));

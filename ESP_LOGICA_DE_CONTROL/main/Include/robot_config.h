@@ -112,6 +112,8 @@ typedef struct {
     float stick_izq_y;         // Stick izquierdo eje Y (reservado)
     uint8_t boton_a;           // Botón A - Cambio de modo
     uint8_t boton_b;           // Botón B - Emergencia
+    uint8_t boton_x;           // Botón X - Seguidor
+    uint8_t boton_y;           // Botón Y - Señales
     uint8_t boton_lb;          // Botón LB - Modo Anterior
     uint8_t boton_rb;          // Botón RB - Modo Siguiente
 } xbox_data_t;
