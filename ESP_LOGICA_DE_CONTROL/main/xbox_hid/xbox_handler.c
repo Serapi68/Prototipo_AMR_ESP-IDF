@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -62,6 +63,11 @@ static void hidh_callback(void *arg,
         g_mando_conectado.boton_y = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_Y) ? 1 : 0; // Botón Y
         g_mando_conectado.boton_lb = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_LB) ? 1 : 0; // Botón LB
         g_mando_conectado.boton_rb = (d[XBOX_BYTE_BUTTONS_1] & XBOX_MASK_RB) ? 1 : 0; // Botón RB
+        g_mando_conectado.boton_select = (d[XBOX_BYTE_BUTTONS_2] & XBOX_MASK_SELECT) ? 1 : 0; // Botón Select
+
+        if (g_mando_conectado.trigger_rt > 0.1 || g_mando_conectado.trigger_lt > 0.1 || fabs(g_mando_conectado.stick_izq_x) > 0.1) {
+            ESP_LOGI(TAG, "Input Mando: RT:%.2f LT:%.2f StickX:%.2f", g_mando_conectado.trigger_rt, g_mando_conectado.trigger_lt, g_mando_conectado.stick_izq_x);
+        }
 
         // Enviar los datos del mando a la tarea de control a través de la cola.
         // Usamos xQueueOverwrite para reemplazar siempre el valor anterior, ya que solo nos interesa el último estado.
@@ -111,7 +117,6 @@ void init_xbox(void)
 
     // Buscar específicamente el controlador Xbox
     esp_hid_scan_result_t *r = results;
-    esp_hidh_dev_t *dev = NULL;
     while (r) {
         // Log para depuración: Ver qué dispositivos se han encontrado
         ESP_LOGI(TAG, "Evaluando dispositivo: %s (RSSI: %d)", (r->name ? r->name : "SIN NOMBRE"), r->rssi);
@@ -121,7 +126,9 @@ void init_xbox(void)
         if (r->transport == ESP_HID_TRANSPORT_BLE && r->name != NULL && strstr(r->name, "Xbox") != NULL) {
             ESP_LOGI(TAG, "¡Mando Xbox Encontrado!: %s", r->name);
             // Abrir conexión con el dispositivo encontrado
-            dev = esp_hidh_dev_open(r->bda, r->transport, r->ble.addr_type);
+            if (esp_hidh_dev_open(r->bda, r->transport, r->ble.addr_type) == NULL) {
+                ESP_LOGE(TAG, "Fallo al conectar con el mando Xbox");
+            }
             break;
         }
         r = r->next;

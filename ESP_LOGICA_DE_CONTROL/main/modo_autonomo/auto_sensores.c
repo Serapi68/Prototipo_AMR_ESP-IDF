@@ -34,35 +34,33 @@ void auto_sensores_init(void) {
     ESP_LOGI(TAG, "Módulo autónomo por sensores inicializado.");
 }
 
-void auto_sensores_run(void) {
-    float dist_frontal;
+void auto_sensores_run(float dist_frontal) {
     static int proxima_direccion = 0; // 1 para derecha, -1 para izquierda
 
     switch (estado_actual) {
         case AVANZANDO:
-            // 1. Poner servo sensor al frente y avanzar
+            // 1. Poner servo sensor al frente
             set_servo_sensor_angle(ANGULO_SENSOR_CENTRO);
             actualizar_movimiento(VELOCIDAD_AUTONOMO, 0); // Avanza a velocidad constante
-
-            // 2. Medir distancia frontal
-            dist_frontal = hc_sr04_get_distance_cm();
 
             // 3. Comprobar si hay obstáculo
             if (dist_frontal > 0 && dist_frontal < DISTANCIA_MINIMA_CM) {
                 ESP_LOGI(TAG, "¡Obstáculo a %.1f cm! Deteniendo.", dist_frontal);
                 actualizar_movimiento(0, 0); // Detener motores
+                tiempo_inicio_maniobra = esp_timer_get_time();
                 estado_actual = DETENIDO;
             }
             break;
 
         case DETENIDO:
-            // Pequeña pausa para estabilizar antes de escanear
-            vTaskDelay(pdMS_TO_TICKS(TIEMPO_PAUSA_DETENIDO_MS));
-            ESP_LOGI(TAG, "Escaneando entorno...");
-            estado_actual = INICIAR_ESCANEO_DERECHA;
+            actualizar_movimiento(0, 0); // Detener motores
+            if ((esp_timer_get_time() - tiempo_inicio_maniobra) / 1000 > TIEMPO_PAUSA_DETENIDO_MS) {
+                ESP_LOGI(TAG, "Escaneando entorno...");
+                estado_actual = INICIAR_ESCANEO_DERECHA;
+            }
             break;
-
         case INICIAR_ESCANEO_DERECHA:
+            actualizar_movimiento(0, 0); 
             set_servo_sensor_angle(ANGULO_SENSOR_DERECHA);
             tiempo_inicio_maniobra = esp_timer_get_time(); // Iniciar temporizador para el servo
             estado_actual = ESPERANDO_SERVO_DERECHA;

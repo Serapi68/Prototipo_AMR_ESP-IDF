@@ -11,6 +11,6 @@ void auto_sensores_init(void);
  * @brief Ejecuta un ciclo de la máquina de estados de evasión de obstáculos.
  * Esta función debe ser llamada periódicamente.
  */
-void auto_sensores_run(void);
+void auto_sensores_run(float dist_frontal);
 
 #endif // AUTO_SENSORES_H

@@ -2,6 +2,7 @@ idf_component_register(SRCS
                     "main.c"
                     "camara_driver/camara_driver.c"
                     "comunicacion_uart/uart_comm.c"
+                    "vision_core/object_processor.cpp"
                     "vision_core/vision_core.c"
                     "wifi_stream/http_stream.c"
                     "proceso_qr/qr_processor.c"
@@ -16,4 +17,4 @@ idf_component_register(SRCS
                     EMBED_TXTFILES
                     "index.html"
                     REQUIRES
-                    esp32-camera esp_psram esp_wifi nvs_flash esp_http_server)
+                    esp32-camera esp_psram esp_wifi nvs_flash esp_http_server esp_timer driver edge-impulse)

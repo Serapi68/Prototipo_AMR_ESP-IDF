@@ -14,19 +14,37 @@ QueueHandle_t g_vision_queue = NULL;
 // Tarea de recepción: Lee del UART y envía a la cola
 static void uart_rx_task(void *arg) {
     uint8_t *data = (uint8_t *) malloc(BUF_SIZE);
+    uint8_t rx_state = 0; // 0: Esperando Header, 1: Esperando CMD, 2: Esperando CRC
+    uint8_t temp_cmd = 0;
     
     while (1) {
-        // Leemos con un timeout corto para no bloquear indefinidamente si queremos detener la tarea
         int len = uart_read_bytes(UART_PORT_NUM, data, BUF_SIZE, pdMS_TO_TICKS(100));
         
         if (len > 0) {
             for (int i = 0; i < len; i++) {
-                uint8_t cmd = data[i];
-                ESP_LOGI(TAG, "Recibido de CAM: 0x%02X", cmd);
-                
-                // Enviamos el comando a la cola para que la máquina de estados lo procese
-                if (g_vision_queue != NULL) {
-                    xQueueSend(g_vision_queue, &cmd, 0);
+                uint8_t byte = data[i];
+
+                // Sincronización robusta: Si vemos el header, reiniciamos el estado
+                if (byte == 0xAA) {
+                    rx_state = 1;
+                    continue;
+                } else if (rx_state == 1) {
+                    temp_cmd = byte;
+                    rx_state = 2;
+                } else if (rx_state == 2) {
+                    // Validar Checksum: CMD + CRC debe ser 0xFF
+                    if ((uint8_t)(temp_cmd + byte) == 0xFF) {
+                        ESP_LOGI(TAG, ">> PAQUETE VÁLIDO RECIBIDO: 0x%02X", temp_cmd);
+                        if (g_vision_queue != NULL) {
+                            if (xQueueSend(g_vision_queue, &temp_cmd, 0) != pdPASS) {
+                                ESP_LOGW(TAG, "Cola de visión llena, descartando 0x%02X", temp_cmd);
+                            }
+                        }
+                    } else {
+                        ESP_LOGW(TAG, ">> ERROR CRC: Cmd=0x%02X, Crc=0x%02X (Suma=0x%02X)", 
+                                 temp_cmd, byte, (uint8_t)(temp_cmd + byte));
+                    }
+                    rx_state = 0;
                 }
             }
         }
@@ -59,5 +77,7 @@ void uart_vision_init(void) {
 }
 
 void uart_vision_send_cmd(uint8_t cmd) {
-    uart_write_bytes(UART_PORT_NUM, (const char*)&cmd, 1);
+    uint8_t packet[3] = {0xAA, cmd, (uint8_t)~cmd};
+    uart_write_bytes(UART_PORT_NUM, (const char*)packet, 3);
+    ESP_LOGI(TAG, "Comando enviado a CAM: 0x%02X", cmd);
 }

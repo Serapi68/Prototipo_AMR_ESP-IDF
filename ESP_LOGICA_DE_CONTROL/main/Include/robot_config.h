@@ -14,13 +14,20 @@
 #define PIN_DIRECCION_A_MOTOR_B  25     //Salida digital -- in3
 #define PIN_DIRECCION_B_MOTOR_B  33     //Salida digital -- in4
 #define PIN_SERVO_DIRECCION 14          //Salida PWM
-#define PIN_SERVO_MOV_SENSOR 18         //Salida PWM
-#define PIN_HCSR04_TRIG 32          //Salida digital
-#define PIN_HCSR04_ECHO 35         //Entrada analogica resistencia 
+#define PIN_MOTOR_STBY       4          //Salida digital -- Standby TB6612FNG
+#define PIN_SERVO_MOV_SENSOR 18         //Salida PWM 
+#define PIN_HCSR04_TRIG 32          //Salida digital -- blanco 
+#define PIN_HCSR04_ECHO 35         //Entrada analogica resistencia --- amarillo
+
+/*========= CONFIGURACIÓN I2C (PCA9685) ===========*/
+#define I2C_SDA_PIN             21
+#define I2C_SCL_PIN             22
+#define I2C_PORT                I2C_NUM_0
+#define PCA9685_ADDR            0x40      // Dirección I2C por defecto
 
 /*===============CONFIGURACION UART VISION===========*/
-#define UART_TX_PIN 17
-#define UART_RX_PIN 16
+#define UART_TX_PIN 17  // === CAMARA TX_PIN 15 
+#define UART_RX_PIN 16 // === CAMARA RX_PIN 14
 
 /*=========CONSTANTES FISICAS===========*/
 //Constantes fisicas del prototipo
@@ -33,8 +40,9 @@
 #define VELOCIDAD_MAX  100.0f           //Velocidad maxima en
 #define VELOCIDAD_MIN  20.0f            //Velocidad minima en cm/s
 #define VELOCIDAD_GIRO 60.0f            //Velocidad de giro en cm/s
-#define SERVO_ANGULO_MAX_GIRO 52        // Ángulo máximo de giro (grados).
-#define SERVO_OFFSET_CENTRADO 7         // Ajuste fino (+/- grados) si el robot no va recto con el stick en 0.
+#define SERVO_ANGULO_BASE     90        // Ángulo base de referencia (centro teórico)
+#define SERVO_ANGULO_MAX_GIRO 40        // Ángulo máximo de giro (grados).
+#define SERVO_OFFSET_CENTRADO 12        // Ajuste fino (+/- grados) si el robot no va recto con el stick en 0.
 #define EFECTO_GIRO 3.5f          // Ganancia para el efecto diferencial (ajustable según pruebas)
 
 //Angulos para el servo del sensor ultrasónico
@@ -45,24 +53,17 @@
 
 #define LEDC_TIMER              LEDC_TIMER_0
 #define LEDC_MODE               LEDC_LOW_SPEED_MODE
-#define LEDC_FRECUENCIA         1000
-#define LEDC_RESOLUCION         LEDC_TIMER_10_BIT  // 10 bits = 0-1023
+#define LEDC_FRECUENCIA         400       // Frecuencia más baja para reducir estrés del driver y ruidos
+#define LEDC_RESOLUCION         LEDC_TIMER_8_BIT  // 8 bits = 0-255
 
 // Canales PWM para los motores
 #define LEDC_CHANNEL_IZQ        LEDC_CHANNEL_0
 #define LEDC_CHANNEL_DER        LEDC_CHANNEL_1
 
-// Parámetros del PWM para servomotor
-#define SERVO_TIMER             LEDC_TIMER_1
-#define SERVO_CHANNEL           LEDC_CHANNEL_2
-#define SERVO_FRECUENCIA        50        
-#define SERVO_RESOLUCION        LEDC_TIMER_14_BIT  
 
-//Parametros del Servo PWM para el sensor ultrasónico
-#define SERVO_SENSOR_TIMER       LEDC_TIMER_2
-#define SERVO_SENSOR_CHANNEL     LEDC_CHANNEL_3
-#define SERVO_SENSOR_FRECUENCIA  50
-#define SERVO_SENSOR_RESOLUCION  LEDC_TIMER_14_BIT
+// Canales en el PCA9685
+#define PCA_CHANNEL_DIRECCION   0         // Servo de dirección en Canal 0
+#define PCA_CHANNEL_SENSOR      1         // Servo de ultrasonido en Canal 1
 
 // Límites del servo 
 #define SERVO_PULSO_MIN         500      // ~1ms (ángulo mínimo)
@@ -77,13 +78,17 @@
 #define XBOX_TRIGGER_MIN        0         // Gatillo sin presionar
 #define XBOX_TRIGGER_MAX        1023      // Gatillo totalmente presionado
 
+// Mapeo adicional para botones Select (View)
+#define XBOX_BYTE_BUTTONS_2     14        // Byte donde se encuentra el botón Select (View) en la mayoría de mandos
+#define XBOX_MASK_SELECT        0x04      // Máscara para el botón View/Select
+
 // Zona muerta 
 #define XBOX_DEADZONE           0.15f     // 15% de zona muerta
 
 /* ========== CONFIGURACIÓN DEL SENSOR ULTRASÓNICO ========== */
 
-#define DISTANCIA_MINIMA_CM     5       // Distancia de detección para frenar (cm)
-#define TIMEOUT_ULTRASONICO_US  30000     // Timeout de 30ms
+#define DISTANCIA_MINIMA_CM     10       // Distancia de detección para frenar (cm)
+#define TIMEOUT_ULTRASONICO_US  20000     // Timeout de 20ms (Reduce el tiempo de bloqueo si no hay eco)
 
 /* ========== PARÁMETROS DEL MODO AUTÓNOMO ========== */
 
@@ -111,6 +116,7 @@ typedef struct {
     float stick_izq_x;         // Stick izquierdo eje X (-1.0 a 1.0) - Dirección
     float stick_izq_y;         // Stick izquierdo eje Y (reservado)
     uint8_t boton_a;           // Botón A - Cambio de modo
+    uint8_t boton_select;      // Botón Select - Toggle Standby
     uint8_t boton_b;           // Botón B - Emergencia
     uint8_t boton_x;           // Botón X - Seguidor
     uint8_t boton_y;           // Botón Y - Señales
@@ -138,7 +144,7 @@ typedef struct {
 /* ========== TAMAÑOS DE STACK ========== */
 
 #define STACK_SIZE_XBOX         4096
-#define STACK_SIZE_MOTORES      2048
+#define STACK_SIZE_MOTORES      4096
 #define STACK_SIZE_SENSORES     2048
     
 

@@ -16,3 +16,6 @@ dependencies:
   #   public: true
   espressif/esp32-camera: '*'
   espressif/quirc: ^1.2.0
+  espressif/esp-dsp: "*"
+  espressif/esp_jpeg: "*"
+  espressif/esp-nn: "*"

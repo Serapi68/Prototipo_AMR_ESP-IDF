@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include <string.h>
 #include "comunicacion_uart/uart_comm.h"
+#include "driver/uart.h"
 
 #if __has_include("quirc.h")
 #include "quirc.h"
@@ -12,8 +13,14 @@
 
 static const char *TAG = "QR_PROC";
 
+static bool g_qr_enabled = false; // Flag de control
+
 #if SOPORTE_QR
 static struct quirc *q = NULL;
+
+void qr_set_enabled(bool enabled) {
+    g_qr_enabled = enabled;
+}
 
 void qr_init(void) {
     if (q) {
@@ -38,6 +45,11 @@ void qr_init(void) {
 }
 
 void qr_process_frame(camera_fb_t *fb) {
+    // Si el modo QR no está activo, salir inmediatamente
+    if (!g_qr_enabled) {
+        return;
+    }
+
     if (!fb || fb->len < 100) {
         ESP_LOGW(TAG, "Frame inválido o muy pequeño");
         return;
@@ -103,7 +115,7 @@ void qr_process_frame(camera_fb_t *fb) {
             memcpy(payload, data->payload, len);
             payload[len] = '\0';
 
-            // SANITIZACIÓN: Eliminar saltos de línea o retornos de carro que rompen la comparación
+            //Eliminar saltos de línea o retornos de carro que rompen la comparación
             for (int k = 0; k < len; k++) {
                 if (payload[k] == '\r' || payload[k] == '\n') {
                     payload[k] = '\0';
@@ -113,28 +125,38 @@ void qr_process_frame(camera_fb_t *fb) {
             
             ESP_LOGI(TAG, "QR[%d]: \"%s\"", i, payload);
             
-            //  LÓGICA DE COMANDOS
-            if (strcmp(payload, "ADELANTE") == 0) {
-                ESP_LOGI(TAG, "COMANDO: AVANZAR");
-                uart_send_byte(0x10);
-            } 
-            else if (strcmp(payload, "ATRAS") == 0) {
-                ESP_LOGI(TAG, "COMANDO: RETROCEDER");
-                uart_send_byte(0x20);
-            } 
-            else if (strcmp(payload, "IZQUIERDA") == 0) {
-                ESP_LOGI(TAG, "COMANDO: IZQUIERDA");
-                uart_send_byte(0x30);
-            } 
-            else if (strcmp(payload, "DERECHA") == 0) {
-                ESP_LOGI(TAG, "COMANDO: DERECHA");
-                uart_send_byte(0x40);
+            // Heurística de proximidad: Calcular área aproximada del QR
+            int min_x = 320, max_x = 0, min_y = 240, max_y = 0;
+            for (int c = 0; c < 4; c++) {
+                if (code.corners[c].x < min_x) min_x = code.corners[c].x;
+                if (code.corners[c].x > max_x) max_x = code.corners[c].x;
+                if (code.corners[c].y < min_y) min_y = code.corners[c].y;
+                if (code.corners[c].y > max_y) max_y = code.corners[c].y;
             }
-            else {
-                ESP_LOGI(TAG, "Código QR leído (sin acción asignada)");
+            int area = (max_x - min_x) * (max_y - min_y);
+
+            // Solo procesar si el QR está lo suficientemente cerca (ajustar 3500 según pruebas)
+            if (area > 3500) {
+                uint8_t cmd = 0;
+                if      (strcmp(payload, "DERECHA") == 0)                cmd = 0x11;
+                else if (strcmp(payload, "IZQUIERDA") == 0)              cmd = 0x12;
+                else if (strcmp(payload, "IZQUIERDA_HACIA_ATRAS") == 0)  cmd = 0x13;
+                else if (strcmp(payload, "DERECHA_HACIA_ADELANTE") == 0) cmd = 0x14;
+                else if (strcmp(payload, "STOP") == 0)                   cmd = 0x15;
+                else if (strcmp(payload, "FIN_TRAYECTO") == 0)           cmd = 0x16;
+
+                if (cmd != 0) {
+                    ESP_LOGI(TAG, "Enviando Comando Seguro: 0x%02X (Area: %d)", cmd, area);
+                    // Enviar paquete completo de una vez
+                    uint8_t packet[3] = {0xAA, cmd, (uint8_t)~cmd};
+                    uart_write_bytes(UART_NUM_1, (const char*)packet, 3);
+                }
+                else {
+                    ESP_LOGI(TAG, "Código QR leído: %s (Sin acción)", payload);
+                }
+            } else {
+                ESP_LOGD(TAG, "QR detectado pero muy lejos (Area: %d)", area);
             }
-        } else {
-            ESP_LOGW(TAG, "QR[%d]: Error al decodificar (%s)", i, quirc_strerror(err));
         }
         
         free(data); // Liberar memoria

@@ -9,6 +9,7 @@ void set_motor_speed_right(int speed);
 void set_servo_angle(int angle);
 void set_servo_sensor_angle(int angle);
 
+void set_motor_standby(bool run);
 void set_led(bool on);
 
 #endif // MOTOR_DRIVER_H

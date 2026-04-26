@@ -6,19 +6,19 @@
 
 //Constantes fisicas estan en el archivo de configuracion robot_config.h
 
-static const char *TAG = "KINEMATIC";
-
 //Funcion de actualizacion de la posicion del robot
 
 void actualizar_movimiento(float potencia, float direccion_stick) {
     
+    static const char *TAG_KIN = "KINEMATIC";
+
     // 1. Zona muerta (si el stick se mueve apenas un poco, lo ignoramos)
     if (fabs(direccion_stick) < XBOX_DEADZONE) direccion_stick = 0;
     if (fabs(potencia) < 0.05) potencia = 0;
 
     // 2. Control del Servo
     // Usamos el offset y el limite definidos en config para evitar forzar el mecanismo
-    int angulo_servo = 90 + SERVO_OFFSET_CENTRADO + (int)(direccion_stick * SERVO_ANGULO_MAX_GIRO); 
+    int angulo_servo = SERVO_ANGULO_BASE + SERVO_OFFSET_CENTRADO + (int)(direccion_stick * SERVO_ANGULO_MAX_GIRO); 
     set_servo_angle(angulo_servo);
 
     // 3. Diferencial Electrónico
@@ -27,7 +27,7 @@ void actualizar_movimiento(float potencia, float direccion_stick) {
 
     if (direccion_stick == 0) {
         // Marcha recta: misma potencia a ambos motores
-        int pwm_val = (int)(potencia * 1023); // Convertir 0.0-1.0 a 0-1023 bits
+        int pwm_val = (int)(potencia * 255); // Convertir 0.0-1.0 a 0-255 bits (8 bits)
         pwm_izq = pwm_val;
         pwm_der = pwm_val;
     } else {
@@ -55,8 +55,8 @@ void actualizar_movimiento(float potencia, float direccion_stick) {
         if (v_interior > 1.0f) v_interior = 1.0f;
         if (v_interior < -1.0f) v_interior = -1.0f;
 
-        int pwm_int = (int)(v_interior * 1023);
-        int pwm_ext = (int)(v_exterior * 1023);
+        int pwm_int = (int)(v_interior * 255);
+        int pwm_ext = (int)(v_exterior * 255);
 
         if (direccion_stick > 0) { // Girar a la derecha
             pwm_der = pwm_int;
@@ -68,18 +68,32 @@ void actualizar_movimiento(float potencia, float direccion_stick) {
 
     }
 
-    // Aplicar velocidades
+    // Limitar PWM al rango de 8 bits (0-255) para evitar desbordamientos si la normalización falla
+    if (pwm_izq > 255)  pwm_izq = 255;
+    if (pwm_izq < -255) pwm_izq = -255;
+    if (pwm_der > 255)  pwm_der = 255;
+    if (pwm_der < -255) pwm_der = -255;
+
+    // 4. Suavizado de aceleración (Soft Start) para evitar picos de corriente (Brownouts)
+    static int current_pwm_izq = 0;
+    static int current_pwm_der = 0;
+    const int ramp_step_up = 25;    // Aceleración suave
+    const int ramp_step_down = 100; // Frenado agresivo para evitar choques
+
+    // Rampa para motor izquierdo
+    if (pwm_izq > current_pwm_izq) current_pwm_izq += (pwm_izq - current_pwm_izq > ramp_step_up) ? ramp_step_up : (pwm_izq - current_pwm_izq);
+    else if (pwm_izq < current_pwm_izq) current_pwm_izq -= (current_pwm_izq - pwm_izq > ramp_step_down) ? ramp_step_down : (current_pwm_izq - pwm_izq);
+
+    // Rampa para motor derecho
+    if (pwm_der > current_pwm_der) current_pwm_der += (pwm_der - current_pwm_der > ramp_step_up) ? ramp_step_up : (pwm_der - current_pwm_der);
+    else if (pwm_der < current_pwm_der) current_pwm_der -= (current_pwm_der - pwm_der > ramp_step_down) ? ramp_step_down : (current_pwm_der - pwm_der);
+
+    // Aplicar los valores suavizados
+    pwm_izq = current_pwm_izq;
+    pwm_der = current_pwm_der;
+
+    ESP_LOGI(TAG_KIN, "Motores -> L: %d, R: %d (Stick: %.2f, Pot: %.2f)", pwm_izq, pwm_der, direccion_stick, potencia);
     set_motor_speed_left(pwm_izq);
     set_motor_speed_right(pwm_der);
 
-    
-
-    // 4. Monitor Serial 
-    // Usamos un contador estático para no saturar el log 
-    static int log_counter = 0;
-    /*if (log_counter++ > 20) {
-        ESP_LOGI(TAG, "Stick: %.2f | Servo: %d | Pot: %.2f | PWM L: %d | PWM R: %d", 
-                 direccion_stick, angulo_servo, potencia, pwm_izq, pwm_der);
-        log_counter = 0;
-    }*/
 }
